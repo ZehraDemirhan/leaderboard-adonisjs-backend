@@ -100,6 +100,28 @@ export async function getPlayerScore(
 export interface Neighbor {
   playerId: number
   score: number
+  rank?: number
+}
+
+/**
+ * Return the 1-based rank of the given score,
+ * across all leaderboard buckets.
+ */
+async function getPlayerRank(
+  redis: ReturnType<typeof Redis.connection>,
+  targetScore: number
+): Promise<number> {
+  let higherCount = 0
+
+  // Sum, in each bucket, how many have score > targetScore
+  for (let i = 0; i < leaderboardConfig.bucketCount; i++) {
+    const key = weekBucketKey(i, '')
+    const cnt = await redis.zcount(key, `(${targetScore}`, '+inf')
+    higherCount += cnt
+  }
+
+  // 1-based rank = number strictly above + 1
+  return higherCount + 1
 }
 
 /**
@@ -198,10 +220,23 @@ export async function getLeaderboard(searchTerm: string): Promise<LeaderboardEnt
   // 4) Get their score from Redis
 
   const targetScore = await getPlayerScore(redis, searched.id)
+  const playerRank = await getPlayerRank(redis, targetScore)
+
   console.log(targetScore)
 
+  const { above: rawAbove, below: rawBelow } = await getScoreNeighbors(redis, targetScore)
+
+  // 5) Annotate with absolute ranks:
+  const above: Neighbor[] = rawAbove.map((n, idx) => ({
+    ...n,
+    rank: playerRank - (rawAbove.length - idx),
+  }))
+  const below: Neighbor[] = rawBelow.map((n, idx) => ({
+    ...n,
+    rank: playerRank + idx + 1,
+  }))
   // 5) Fetch the 3 above / 2 below
-  const { above, below } = await getScoreNeighbors(redis, targetScore)
+  //const { above, below } = await getScoreNeighbors(redis, targetScore)
   console.log(above, below)
 
   // 6) Merge all IDs we care about
@@ -220,11 +255,23 @@ export async function getLeaderboard(searchTerm: string): Promise<LeaderboardEnt
   for (const id of allIds) {
     const money = await getPlayerScore(redis, id)
     const pd = playersData.find((p) => p.id === id)
+
+    let rank: number | undefined
+    if (id === searched.id) {
+      rank = playerRank
+    } else {
+      const neighbor = above.find((n) => n.playerId === id) ?? below.find((n) => n.playerId === id)
+      if (neighbor) {
+        rank = neighbor.rank
+      }
+    }
+
     final.push({
       playerId: id,
       money,
       name: pd?.name || null,
       country: pd?.country || null,
+      rank,
     })
   }
 
@@ -400,10 +447,10 @@ async function clearRedisState(redis: ReturnType<typeof Redis.connection>, poolK
   }
 }
 
-// --- Types ---
 export interface LeaderboardEntry {
   playerId: number
   money: number
   name: string | null
   country: string | null
+  rank?: number
 }
