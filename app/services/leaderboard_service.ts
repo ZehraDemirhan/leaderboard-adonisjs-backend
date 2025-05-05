@@ -40,16 +40,15 @@ export async function addEarnings(playerId: number, amount: number) {
   const lbKey = weekBucketKey(bucketId)
 
   // 1) update the player's score
-  const updatedScoreStr = await redis.zincrby(lbKey, amount, playerId.toString())
-  const updatedScore = Number(updatedScoreStr)
+  await redis.zincrby(lbKey, amount, playerId.toString())
 
   // 2) compute integer prize-pool increment (e.g. rounded)
   const poolIncrement = Math.round(amount * 0.02)
 
   // 3) apply as integer
-  const updatedPool = await redis.incrby(poolKey(new Date()), poolIncrement)
+  await redis.incrby(poolKey(new Date()), poolIncrement)
 
-  console.log('Broadcasting update →', { playerId, money: updatedScore, pool: updatedPool })
+  //console.log('Broadcasting update →', { playerId, money: updatedScore, pool: updatedPool })
 }
 
 export function getWeekSinceCronJob(

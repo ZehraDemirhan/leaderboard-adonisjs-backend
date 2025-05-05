@@ -6,6 +6,7 @@ const AuthController = () => import('#controllers/auth_controller')
 router
   .group(() => {
     router.get('/leaderboard', [LeaderboardController, 'index'])
+    router.get('/leaderboard/autocomplete', [LeaderboardController, 'autocomplete'])
     router.post('/broadcast/channel', [AuthController, 'channel'])
   })
   .prefix('api/v1')

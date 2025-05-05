@@ -7,7 +7,7 @@ import { getWeekSinceCronJob } from '#services/leaderboard_service'
 import Redis from '@adonisjs/redis/services/main'
 
 // Every minute
-scheduler.scheduleJob('*/40 * * * *', async function () {
+scheduler.scheduleJob(`*/${leaderboardConfig.simulateEarningsInterval} * * * *`, async function () {
   const isSimEarningsEnabled = env.get('ENABLE_SIMULATE_EARNINGS', false)
   if (isSimEarningsEnabled) {
     console.log('SimulateEarnings start!')
