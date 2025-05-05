@@ -175,7 +175,7 @@ export async function getScoreNeighbors(
   lowerCandidates.sort((a, b) => b.score - a.score) // largest below first
 
   return {
-    above: higherCandidates.slice(0, numAbove),
+    above: higherCandidates.slice(0, numAbove).reverse(),
     below: lowerCandidates.slice(0, numBelow),
   }
 }
