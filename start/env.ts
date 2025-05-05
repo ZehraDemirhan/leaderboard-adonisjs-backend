@@ -38,4 +38,10 @@ export default await Env.create(new URL('../', import.meta.url), {
   LEADERBOARD_BUCKET_COUNT: Env.schema.number.optional(),
   ENABLE_SIMULATE_EARNINGS: Env.schema.boolean.optional(),
   LEADERBOARD_INTERVAL_PERIOD: Env.schema.number.optional(),
+
+  API_NINJAS_KEY: Env.schema.string(),
+  LEADERBOARD_MAX_PLAYER_ID: Env.schema.number.optional(),
+  LEADERBOARD_SIMULATION_COUNT: Env.schema.number.optional(),
+  LEADERBOARD_MAX_EARNING: Env.schema.number.optional(),
+  SIMULATE_EARNINGS_INTERVAL: Env.schema.number.optional(),
 })
