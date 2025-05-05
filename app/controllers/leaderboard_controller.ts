@@ -42,7 +42,7 @@ export default class LeaderboardController {
     const players = await Player.query()
       .select('id', 'name', 'country')
       .whereRaw(`LOWER(name) LIKE LOWER(?) || '%'`, [q])
-      .orderBy('name', 'asc')
+      .orderByRaw(`LOWER(name) COLLATE "C" ASC`)
       .limit(10)
 
     return response.json(players)
