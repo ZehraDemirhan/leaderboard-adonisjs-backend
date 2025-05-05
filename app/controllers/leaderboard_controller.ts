@@ -41,7 +41,7 @@ export default class LeaderboardController {
     // prefix search, case‐insensitive
     const players = await Player.query()
       .select('id', 'name', 'country')
-      .whereILike('name', `${q}%`)
+      .whereRaw(`LOWER(name) LIKE LOWER(?) || '%'`, [q])
       .orderBy('name', 'asc')
       .limit(10)
 
