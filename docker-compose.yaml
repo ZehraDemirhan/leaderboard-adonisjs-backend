@@ -1,0 +1,76 @@
+version: '3'
+
+services:
+  soketi:
+    restart: always
+    image: quay.io/soketi/soketi:latest-16-alpine
+    ports:
+      - "6001:6001"
+      - "9601:9601"
+    environment:
+      SOKETI_DEFAULT_APP_ID: developerlocalappid
+      SOKETI_DEFAULT_APP_KEY: localws
+      SOKETI_DEFAULT_APP_SECRET: thisisasecret
+      SOKETI_DEFAULT_APP_USER_AUTHENTICATION: "true"
+
+  db:
+    image: registry.turkai.com/all/docker-images/postgres:15.3-arm
+    container_name: postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USERNAME: postgres
+      POSTGRES_PASSWORD: secret
+    ports:
+      - '54322:5432'
+    volumes:
+      - /Users/zehrademirhan/Desktop/docker_local_services/dbdata:/var/lib/postgresql/data
+
+  redis-node-1:
+    image: redis:7-alpine
+    container_name: redis-node-1
+    command: >
+      redis-server --port 7001
+                   --cluster-enabled yes
+                   --cluster-config-file nodes.conf
+                   --cluster-node-timeout 5000
+                   --cluster-announce-ip 127.0.0.1
+                   --appendonly yes
+    ports:
+      - "7001:7001"
+    volumes:
+      - redis-node-1-data:/data
+
+  redis-node-2:
+    image: redis:7-alpine
+    container_name: redis-node-2
+    command: >
+      redis-server --port 7002
+                   --cluster-enabled yes
+                   --cluster-config-file nodes.conf
+                   --cluster-node-timeout 5000
+                   --cluster-announce-ip 127.0.0.1
+                   --appendonly yes
+    ports:
+      - "7002:7002"
+    volumes:
+      - redis-node-2-data:/data
+
+  redis-node-3:
+    image: redis:7-alpine
+    container_name: redis-node-3
+    command: >
+      redis-server --port 7003
+                   --cluster-enabled yes
+                   --cluster-config-file nodes.conf
+                   --cluster-node-timeout 5000
+                   --cluster-announce-ip 127.0.0.1
+                   --appendonly yes
+    ports:
+      - "7003:7003"
+    volumes:
+      - redis-node-3-data:/data
+
+volumes:
+  redis-node-1-data:
+  redis-node-2-data:
+  redis-node-3-data:
