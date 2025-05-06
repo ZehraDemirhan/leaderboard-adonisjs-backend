@@ -1,7 +1,7 @@
 import { BaseCommand } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import db from '@adonisjs/lucid/services/db'
-import leaderboardConfig from '#config/leaderboard'
+//import leaderboardConfig from '#config/leaderboard'
 // Bu komutla
 // 10 milyon oyuncu kaydını "players" tablosuna toplu olarak ekliyorum.
 // Raw SQL INSERT ifadelerini batch halinde üretip çalıştırıyorum.
@@ -35,6 +35,7 @@ export default class PopulatePlayers extends BaseCommand {
   public async run() {
     this.logger.info('Populating 10,000,000 players via raw SQL in batches...')
 
+    /*
     // 1) Ensure API key is set
     const apiKey = leaderboardConfig.apiNinjakey
     if (!apiKey) {
@@ -43,8 +44,10 @@ export default class PopulatePlayers extends BaseCommand {
       )
       return
     }
+    */
 
     // 2) Fetch base names
+    /*
     const resp = await fetch('https://api.api-ninjas.com/v1/babynames?gender=neutral', {
       headers: { 'X-Api-Key': apiKey },
     })
@@ -52,35 +55,61 @@ export default class PopulatePlayers extends BaseCommand {
       this.logger.error(`Failed to fetch names: ${resp.status} ${resp.statusText}`)
       return
     }
-    const names: string[] = await resp.json()
+    */
+    //const names: string[] = (await resp.json()) as any
+
+    // 2) Base names array (gender-neutral)
+    const names: string[] = [
+      'Alex',
+      'Taylor',
+      'Jordan',
+      'Morgan',
+      'Casey',
+      'Riley',
+      'Cameron',
+      'Jamie',
+      'Avery',
+      'Quinn',
+      'Reese',
+      'Dakota',
+      'Emerson',
+      'Finley',
+      'Harper',
+      'Kai',
+      'Ariel',
+      'Rowan',
+      'Skyler',
+      'Peyton',
+    ]
 
     // 3) Static list of countries for random assignment
     const countries = [
-      'US',
-      'CN',
-      'JP',
-      'DE',
-      'FR',
-      'BR',
-      'IN',
-      'RU',
-      'CA',
-      'GB',
-      'AU',
-      'SE',
-      'NO',
-      'FI',
-      'NL',
-      'BE',
-      'CH',
-      'ES',
-      'IT',
-      'MX',
+      'AD', // Andorra :contentReference[oaicite:0]{index=0}
+      'AE', // United Arab Emirates :contentReference[oaicite:1]{index=1}
+      'AF', // Afghanistan :contentReference[oaicite:2]{index=2}
+      'AG', // Antigua and Barbuda :contentReference[oaicite:3]{index=3}
+      'AI', // Anguilla :contentReference[oaicite:4]{index=4}
+      'AL', // Albania :contentReference[oaicite:5]{index=5}
+      'AM', // Armenia :contentReference[oaicite:6]{index=6}
+      'AN', // Netherlands Antilles :contentReference[oaicite:7]{index=7}
+      'AO', // Angola :contentReference[oaicite:8]{index=8}
+      'AQ', // Antarctica :contentReference[oaicite:9]{index=9}
+      'AR', // Argentina :contentReference[oaicite:10]{index=10}
+      'AS', // American Samoa :contentReference[oaicite:11]{index=11}
+      'AT', // Austria :contentReference[oaicite:12]{index=12}
+      'AU', // Australia :contentReference[oaicite:13]{index=13}
+      'AW', // Aruba :contentReference[oaicite:14]{index=14}
+      'AX', // Åland Islands :contentReference[oaicite:15]{index=15}
+      'AZ', // Azerbaijan :contentReference[oaicite:16]{index=16}
+      'BA', // Bosnia and Herzegovina :contentReference[oaicite:17]{index=17}
+      'BB', // Barbados :contentReference[oaicite:18]{index=18}
+      'BD', // Bangladesh :contentReference[oaicite:19]{index=19}
+      'BE', // Belgium :contentReference[oaicite:20]{index=20}
     ]
 
     // 4) Batch settings
-    const TOTAL = 10_000_000
-    const BATCH_SIZE = 100_000
+    const TOTAL = 100
+    const BATCH_SIZE = 10
     const now = new Date().toISOString()
 
     for (let start = 1; start <= TOTAL; start += BATCH_SIZE) {
