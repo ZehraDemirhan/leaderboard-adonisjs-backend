@@ -5,29 +5,28 @@ import Player from '#models/player'
 import Broadcast from '#services/broadcast'
 import db from '@adonisjs/lucid/services/db'
 
-// --- Key Helpers ---
 function getBucketId(playerId: string | number) {
   return Number(playerId) % leaderboardConfig.bucketCount
 }
 
-// Week Bucket Key fonksiyonu
-function weekBucketKey(bucketId: number, weekToDistributePrizesFor?: string, date = new Date()) {
-  // Cron job'dan itibaren kaç hafta geçtiğini hesapla
-  const weekNumber = getWeekSinceCronJob(
-    leaderboardConfig.cronJobStartDate,
-    weekToDistributePrizesFor
-  )
+async function weekBucketKey(
+  bucketId: number,
+  weekToDistributePrizesFor?: string,
+  date = new Date()
+) {
+  // Cron job'dan itibaren kaç interval geçtiğini hesapla
+  const redis = Redis.connection('cluster')
+  const cronJobStartDate = await redis.get('cron:first')
+  const weekNumber = getWeekSinceCronJob(cronJobStartDate, weekToDistributePrizesFor)
 
   return `leaderboard:week:${date.getFullYear()}-W${weekNumber}:bucket:${bucketId}`
 }
 
 // Pool Key fonksiyonu
-export function poolKey(date = new Date(), weekToDistributePrizesFor?: string) {
-  // Cron job'dan itibaren kaç hafta geçtiğini hesapla
-  const weekNumber = getWeekSinceCronJob(
-    leaderboardConfig.cronJobStartDate,
-    weekToDistributePrizesFor
-  )
+export async function poolKey(date = new Date(), weekToDistributePrizesFor?: string) {
+  const redis = Redis.connection('cluster')
+  const cronJobStartDate = await redis.get('cron:first')
+  const weekNumber = getWeekSinceCronJob(cronJobStartDate, weekToDistributePrizesFor)
 
   return `prizepool:week:${date.getFullYear()}-W${weekNumber}`
 }
@@ -37,7 +36,7 @@ export async function addEarnings(playerId: number, amount: number) {
   const redis = Redis.connection('cluster')
 
   const bucketId = getBucketId(playerId)
-  const lbKey = weekBucketKey(bucketId)
+  const lbKey = await weekBucketKey(bucketId)
 
   // 1) update the player's score
   await redis.zincrby(lbKey, amount, playerId.toString())
@@ -46,7 +45,7 @@ export async function addEarnings(playerId: number, amount: number) {
   const poolIncrement = Math.round(amount * 0.02)
 
   // 3) apply as integer
-  await redis.incrby(poolKey(new Date()), poolIncrement)
+  await redis.incrby(await poolKey(new Date()), poolIncrement)
 
   //console.log('Broadcasting update →', { playerId, money: updatedScore, pool: updatedPool })
 }
@@ -79,7 +78,7 @@ export function getWeekSinceCronJob(
 
   //console.log(intervalsPassed, lastProcessedWeek)
 
-  return intervalsPassed // G
+  return intervalsPassed
 }
 
 export async function getPlayerScore(
@@ -90,7 +89,7 @@ export async function getPlayerScore(
   const bucketId = getBucketId(playerId)
 
   // 2) build the exact key for that bucket
-  const key = weekBucketKey(bucketId)
+  const key = await weekBucketKey(bucketId)
 
   // 3) pull their score (zscore returns string or null)
   const raw = await redis.zscore(key, playerId.toString())
@@ -115,7 +114,7 @@ async function getPlayerRank(
 
   // Sum, in each bucket, how many have score > targetScore
   for (let i = 0; i < leaderboardConfig.bucketCount; i++) {
-    const key = weekBucketKey(i, '')
+    const key = await weekBucketKey(i, '')
     const cnt = await redis.zcount(key, `(${targetScore}`, '+inf')
     higherCount += cnt
   }
@@ -139,7 +138,7 @@ export async function getScoreNeighbors(
 
   // 1) scan each bucket
   for (let i = 0; i < leaderboardConfig.bucketCount; i++) {
-    const key = weekBucketKey(i, '')
+    const key = await weekBucketKey(i, '')
 
     // a) all scores > targetScore
     const aboveRaw = await redis.zrangebyscore(
@@ -320,7 +319,7 @@ export async function distributePrizesAndReset() {
   const redis = Redis.connection('cluster')
   const weekToDistributePrizesFor = await redis.get('weekToDistributePrizesFor')
   console.log('DISTRUBUTE INSIDE', weekToDistributePrizesFor)
-  const poolKeyName = poolKey(new Date(), weekToDistributePrizesFor!)
+  const poolKeyName = await poolKey(new Date(), weekToDistributePrizesFor!)
   const poolAmount = await getPrizePool(redis, weekToDistributePrizesFor!)
   console.log('POOL AMOUNT', poolAmount)
   if (poolAmount <= 0) {
@@ -344,7 +343,7 @@ async function getPrizePool(
   redis: ReturnType<typeof Redis.connection>,
   weekToDistributePrizesFor: string
 ) {
-  const poolKeyName = poolKey(new Date(), weekToDistributePrizesFor)
+  const poolKeyName = await poolKey(new Date(), weekToDistributePrizesFor)
   const poolRaw = await redis.get(poolKeyName)
   const amount = Number.parseFloat(poolRaw || '0')
   return amount
@@ -358,7 +357,7 @@ async function getTop100(
 
   for (let i = 0; i < leaderboardConfig.bucketCount; i++) {
     const slice = await redis.zrevrange(
-      weekBucketKey(i, weekToDistributePrizesFor ? weekToDistributePrizesFor : ''),
+      await weekBucketKey(i, weekToDistributePrizesFor ? weekToDistributePrizesFor : ''),
       0,
       -1,
       'WITHSCORES'
@@ -441,9 +440,9 @@ async function clearRedisState(redis: ReturnType<typeof Redis.connection>, poolK
   await redis.del(poolKeyName)
 
   const weekToDistributePrizesFor = await redis.get('weekToDistributePrizesFor')
-  console.log('DELETING', weekBucketKey(0, weekToDistributePrizesFor!))
+  console.log('DELETING', await weekBucketKey(0, weekToDistributePrizesFor!))
   for (let i = 0; i < leaderboardConfig.bucketCount; i++) {
-    await redis.del(weekBucketKey(i, weekToDistributePrizesFor!))
+    await redis.del(await weekBucketKey(i, weekToDistributePrizesFor!))
   }
 }
 

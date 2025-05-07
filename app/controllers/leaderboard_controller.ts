@@ -1,5 +1,5 @@
 import type { HttpContext } from '@adonisjs/core/http'
-import { getLeaderboard, poolKey } from '#services/leaderboard_service'
+import { getLeaderboard, getWeekSinceCronJob, poolKey } from '#services/leaderboard_service'
 import Redis from '@adonisjs/redis/services/main'
 import leaderboardConfig from '#config/leaderboard'
 import Player from '#models/player'
@@ -10,8 +10,13 @@ export default class LeaderboardController {
 
     const data = await getLeaderboard(searchTerm)
 
+    const redis = Redis.connection('cluster')
+    const cronJobStartDate = await redis.get('cron:first')
+    const weekNumber = getWeekSinceCronJob(cronJobStartDate)
+    console.log('WEEK NUMBER', weekNumber, cronJobStartDate)
+
     // prize poolx
-    const poolVal = await Redis.connection('cluster').get(poolKey())
+    const poolVal = await Redis.connection('cluster').get(await poolKey())
     const pool = poolVal ? Number.parseFloat(poolVal) : 0
 
     // next reset time (ISO string)

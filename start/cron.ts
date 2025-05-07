@@ -20,17 +20,25 @@ scheduler.scheduleJob(`*/${leaderboardConfig.simulateEarningsInterval} * * * *`,
 
 // “*/20 * * * *” = every 20 minutes (at minute 0, 20, 40)
 scheduler.scheduleJob(`*/${leaderboardConfig.intervalPeriod}  * * * *`, async () => {
+  const redis = Redis.connection('cluster')
+  const firstRunKey = 'cron:first'
+  const existing = await redis.get(firstRunKey)
+  if (!existing) {
+    const now = new Date().toISOString()
+    await redis.set(firstRunKey, now)
+    console.log(`First cron start recorded at ${now}`)
+  }
+
+  const cronJobStartDate = await redis.get(firstRunKey)
   const currentDateMinusOneMinute = new Date()
   currentDateMinusOneMinute.setMinutes(currentDateMinusOneMinute.getMinutes() - 1)
   const weekToDistributePrizesFor = getWeekSinceCronJob(
-    leaderboardConfig.cronJobStartDate,
+    cronJobStartDate,
     '',
     currentDateMinusOneMinute
   )
 
-  console.log(weekToDistributePrizesFor, 'HEREEE LAST')
-
-  const redis = Redis.connection('cluster')
+  console.log(weekToDistributePrizesFor, 'Week to distibute prizes for.')
   await redis.set('weekToDistributePrizesFor', weekToDistributePrizesFor)
 
   console.log('CRON DATE', new Date())
