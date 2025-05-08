@@ -1,77 +1,83 @@
 # Scalable Leaderboard System
-# Projeye Genel Bakış
 
-Bu projede **AdonisJS** ve **Node.js** kullanarak on milyon kullanıcıya hizmet verebilecek ölçeklenebilir bir leaderboard sistemi geliştirdim. Üç düğümlü Docker tabanlı bir **Redis Cluster** kurdum ve on bin **bucket**’tan oluşan bir bucketing mantığı uyguladım. Tüm kullanıcı puanlarını Redis **ZSET**’lerine kaydederek “top 100” sorgularını milisaniyeler içinde yanıtlayacak şekilde optimize ettim.
+## Projeye Genel Bakış
 
-Veritabanı katmanı için **PostgreSQL**’i tercih ettim. Üçüncü parti bir API’den çekilen ve özel bir AdonisJS komutuyla oluşturulan on milyon kullanıcı veri setini seed ederken her kullanıcının money alanını sıfır olarak başlattım. Haftalık ödül dağıtımları bu alanı yapılandırılmış mantığa göre güncelliyor.
+Bu projede **AdonisJS** ve **Node.js** kullanarak on milyon kullanıcıya hizmet verebilecek ölçeklenebilir bir *leaderboard* sistemi geliştirdim. Sistem, yüksek eşzamanlılık altında milisaniye seviyesinde "top 100" sorgularına yanıt verebilecek şekilde tasarlandı.
 
-**Cron job**’lar, .env dosyasında tanımlanan çevresel değişkenlerle tetikleniyor. Cron başlangıç tarihinden itibaren geçen hafta sayısını hesaplayan getWeekSinceCronJob fonksiyonunu yazarak veri yazımı, frontend’e gönderim ve ödül dağıtımı süreçlerinde tutarlılık sağladım. Ayrıca haftalık olarak çalışan ve ödülleri PostgreSQL’e işleyen, ardından  **WebSocket** kanalı üzerinden gerçek zamanlı güncellemeler (highlight, pool güncellemeleri vb.) yayınlayan ayrı bir DistributePrizes servisi tanımladım.
+### Temel Özellikler
 
-AdonisJS’in **IoC** konteynerine **Redis** servisini dahil ederek controller’ların ve servislerin Redis’e manuel yapılandırma gerektirmeden **IoC** üzerinden erişmesini sağladım. **Dockerfile** oluşturdum, yerel bir imaj yarattım ve **Docker Compose** ile **Redis cluster düğümlerini**, **PostgreSQL’i** socket servisini ve API sunucusunu geliştirme ortamımda ayağa kaldırdım.
+- **Redis Cluster Bucketing:**
+    - Üç düğümlü Docker tabanlı **Redis Cluster** kuruldu.
+    - Toplam **10.000 bucket** kullanılarak her bir kullanıcı skoru dağıtıldı.
+    - Kullanıcı sıralamaları için Redis **ZSET** yapısı kullanıldı ve `ZREVRANGE` gibi sorgular logaritmik sürede çalışıyor.
 
-Prodüksiyon ortamı için bir **AWS EC2** instance kiraladım, sunucuya Docker ve Docker Compose kurdum, **SSH** üzerinden bağlanarak uygulama bileşenlerini deploy ettim. Docker Compose konfigürasyon dosyasını EC2’ye kopyalayıp imajları çekerek docker-compose up -d komutuyla PostgreSQL, Redis cluster, socket servisi ve API’yi başlattım.
+- **PostgreSQL:**
+    - Veritabanı olarak **PostgreSQL** kullanıldı.
+    - Üçüncü parti bir API’den çekilen ve özel bir **AdonisJS komutu** ile oluşturulan **10 milyon kullanıcı** verisi seed edildi.
+    - Her kullanıcının `money` alanı başlangıçta sıfır olarak ayarlandı.
+    - Haftalık ödül dağıtımları bu alanları yapılandırılmış mantıkla güncelliyor.
 
-AWS üzerinde gerekli portlara erişimi sağlamak için güvenlik gruplarını konfigüre ettim: frontend için HTTP/HTTPS (80, 443), API (3333), WebSocket (6001), Redis cluster (7000–7002) ve PostgreSQL (5432). Bu sayede hem kullanıcı arayüzü hem de servisler erişilebilir kalırken güvenlik sınırları korunmuş oldu.
+- **Cron Job & Simülasyon:**
+    - `.env` dosyasından okunan çevresel değişkenlerle tetiklenen **cron job** sistemleri kuruldu.
+    - `getWeekSinceCronJob` fonksiyonu ile cron başlangıç tarihinden itibaren geçen hafta sayısı hesaplanıyor.
+    - Bu hesaplamalar, hem veri yazımı hem de ödül dağıtımı gibi süreçlerde tutarlılığı sağlıyor.
+    - Haftalık olarak çalışan `DistributePrizes` servisi tanımlandı; bu servis PostgreSQL’e ödülleri işliyor ve WebSocket kanalları aracılığıyla frontend’e gerçek zamanlı veri gönderiyor.
 
-Tamamen stateless bir mimari kurarak Redis üzerinden okuma darboğazlarını ortadan kaldırdım; yüksek eşzamanlılık gerektiren “top 100” gibi sorgularda tüm okuma işlemleri doğrudan Redis’ten yapılarak milisaniyeler içinde sonuç dönülüyor. Arama veya filtreleme gibi veritabanı sorgusu gereken senaryolarda ise ilgili PostgreSQL sütunlarına eklediğim **B-tree** indekslerle performansı yüksek tutuyorum.
+- **IoC Entegrasyonu:**
+    - AdonisJS’in **IoC Container** yapısı kullanılarak Redis servisleri container’a entegre edildi.
+    - Böylece controller’lar ve servisler, Redis yapılandırmasına ihtiyaç duymadan container üzerinden erişebiliyor.
 
-Gerçek zamanlı frontend güncellemeleri için socket servisi, puan güncellemeleri veya ödül dağıtımları gerçekleştiğinde private WebSocket kanallar üzerinden event yayınlıyor. Frontend bu kanalları dinleyerek leaderboard ve havuz bilgilerini anında güncelliyor, kullanıcılar sayfayı yenilemeden en güncel verileri görüyor.
+- **Docker & Geliştirme Ortamı:**
+    - Bir **Dockerfile** yazarak yerel bir imaj oluşturuldu.
+    - **Docker Compose** ile geliştirme ortamında şu servisler ayağa kaldırıldı:
+        - Redis Cluster düğümleri (3 adet)
+        - PostgreSQL
+        - Socket servisi
+        - API sunucusu
 
-**Önemli**: Kullandığım sunucu kapasitesinden dolayı şu anda **DB**'de 100.000 kullanıcı var. Her **1** dakikada bir **100** kişiye redis üzerinden başarım simule edilip para veriliyor. Her **3** dakikada bir ise en çok paraya sahip 100 kişiye ödüller dağıtılıyor. (Arayüzde görüntülemesi rahat olsun diye 1 hafta olan senaryoyu bu şekilde scale-down ettim. Bu intervaller env dosyasından ayarlanabiliyor.) Ödüller dağıtılırken arayüzde ödülün dağıtıldığı kişi altın rengini alıyor ve dağıtıldıkça havuzdan veri eksiliyor.
+- **Prodüksiyon Ortamı:**
+    - Bir **AWS EC2 instance** kiralandı.
+    - Sunucuya **Docker** ve **Docker Compose** yüklendi.
+    - **SSH** ile sunucuya bağlanılıp uygulama bileşenleri deploy edildi.
+    - Docker Compose konfigürasyon dosyası sunucuya kopyalanıp `docker-compose up -d` komutu ile PostgreSQL, Redis Cluster, socket servisi ve API başlatıldı.
 
-## Project Overview
+- **Güvenlik Grupları:**
+    - AWS ortamında gerekli portlara erişimi sağlamak için aşağıdaki güvenlik grubu ayarları yapıldı:
+        - HTTP/HTTPS: 80, 443 (Frontend)
+        - API: 3333
+        - WebSocket: 6001
+        - Redis Cluster: 7000–7002
+        - PostgreSQL: 5432
+    - Böylece hem frontend hem de servisler erişilebilir kalırken güvenlik sınırları korundu.
 
-This is a highly scalable ****leaderboard system**** built with ****AdonisJS**** and ****Node.js****, designed to serve ****10 million**** users with millisecond-level performance for queries like “Top 100.” Key highlights:
+- **Stateless Mimari:**
+    - Tamamen **stateless** bir yapı kuruldu.
+    - Tüm okuma işlemleri Redis üzerinden yapılıyor.
+    - Redis, okuma işlemleri için kullanılırken PostgreSQL yalnızca veri yazımı için kullanılıyor.
+    - “Top 100” gibi yüksek trafikli sorgular milisaniyeler içinde sonuçlanıyor.
+    - Arama ve filtreleme gereken durumlar için PostgreSQL’de **B-tree index** kullanıldı.
 
-- ****Redis Cluster Bucketing:**** Three-node Redis cluster with 10 000 buckets, using ZSETs for ultra-fast ranking.
-- ****PostgreSQL:**** Relational persistence seeded with 10 million users; weekly prize distributions update user balances.
-- ****Cron Jobs & Simulation:**** Environment-driven cron jobs simulate achievements, update Redis scores, compute elapsed weeks via `getWeekSinceCronJob`, and distribute prizes via `DistributePrizes`.
-- ****Real-Time Updates:**** Private WebSocket channels push highlights and pool changes to the frontend in real time.
-- ****Stateless Architecture:**** Reads come directly from Redis; PostgreSQL is only written to, avoiding database read bottlenecks.
+- **Gerçek Zamanlı Güncellemeler:**
+    - Socket servisi, puan güncellemeleri ve ödül dağıtımları gerçekleştiğinde **private WebSocket kanalları** üzerinden event yayınlıyor.
+    - Frontend tarafı bu kanalları dinleyerek:
+        - Anlık leaderboard güncellemelerini
+        - Ödül havuzundaki değişiklikleri
+        - Vurgulu (highlight) kullanıcı satırlarını gösteriyor.
+    - Böylece kullanıcılar sayfayı yenilemeden en güncel verileri görebiliyor.
+
+- **Simülasyon Senaryosu (Test için Ölçek Küçültme):**
+    - Sunucu kapasitesinden dolayı şu anda veritabanında **100.000 kullanıcı** bulunuyor.
+    - Her **1 dakikada bir**, **100 kullanıcıya** Redis üzerinden başarı simüle edilip `money` değerleri artırılıyor.
+    - Her **3 dakikada bir**, en çok paraya sahip **100 kullanıcıya** ödüller dağıtılıyor.
+    - Bu interval değerleri `.env` dosyası ile dinamik olarak ayarlanabiliyor.
+    - Ödüller dağıtılırken:
+        - Kazanan satırlar arayüzde **altın rengiyle** vurgulanıyor.
+        - Ödül havuzundaki miktar gerçek zamanlı olarak eksiliyor.
 
 ---
 
-## Architecture
-
-### Redis Cluster with Bucketing
-
-- ****Three-node cluster**** deployed via Docker for HA and horizontal scalability.
-- ****10 000 buckets**** partition user scores evenly across the cluster.
-- ****Redis ZSETs**** maintain scores; `ZREVRANGE` queries run in O(log N) time.
-
-### PostgreSQL Setup
-
-- Seeds 10 million users (initial `money = 0`) via AdonisJS seed command and third-party API.
-- Weekly prize job persists updated balances back to PostgreSQL.
-- B-tree indexes on ranking and filter columns ensure fast searches when DB reads are needed.
-
-### Stateless Design & Caching
-
-- ****Write-through:**** Every simulated achievement writes to Redis ZSET.
-- ****Read-from Redis:**** Frontend and services read leaderboard data directly from Redis.
-- ****Millisecond responses:**** Eliminates DB read bottlenecks under high concurrency.
-
-### Cron Jobs & Scheduling
-
-- ****`getWeekSinceCronJob`**** — calculates number of weeks since `cronJobStartDate`.
-- ****Simulation Job:**** Runs per `.env` schedule to simulate achievements and update reward pool.
-- ****`DistributePrizes` Job:**** Weekly cron calculates prizes, writes to PostgreSQL, and emits WebSocket events.
-
-### Real-Time WebSocket Notifications
-
-- Broadcast highlights and pool changes via Pusher channels.
-- Leveraged a third-party Pusher service because the Vercel-deployed frontend does not support long-lived socket connections.
-- The AdonisJS backend triggers Pusher events to deliver real-time updates to the UI.
-
----
-
-## Dependency Injection (IoC)
-
-- Redis clients and other services are injected via AdonisJS’s IoC container.
-- Promotes modularity and testability; swap implementations or mock services easily.
-
----
-
+## Ekran Görüntüleri
 
 <img width="1301" alt="Screenshot 2025-05-05 at 16 54 14" src="https://github.com/user-attachments/assets/9929d7d0-a6cf-47dc-b51b-02ba1616482a" />
+<br/>
 <img width="1313" alt="Screenshot 2025-05-05 at 17 07 33" src="https://github.com/user-attachments/assets/b7a28562-67be-4b7d-b92a-7b0bd5a32f90" />
