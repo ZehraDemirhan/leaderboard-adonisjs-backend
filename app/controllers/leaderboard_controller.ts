@@ -15,7 +15,6 @@ export default class LeaderboardController {
     const weekNumber = getWeekSinceCronJob(cronJobStartDate)
     console.log('WEEK NUMBER', weekNumber, cronJobStartDate)
 
-    // prize poolx
     const poolVal = await Redis.connection('cluster').get(await poolKey())
     const pool = poolVal ? Number.parseFloat(poolVal) : 0
 

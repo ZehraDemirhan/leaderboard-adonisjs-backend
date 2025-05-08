@@ -1,4 +1,3 @@
-// start/broadcast.ts
 import Pusher from 'pusher'
 import { createHmac } from 'node:crypto'
 import { broadcastingConfig } from '#config/broadcasting'

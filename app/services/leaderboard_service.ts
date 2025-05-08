@@ -1,4 +1,3 @@
-// --- Imports ---
 import Redis from '@adonisjs/redis/services/main'
 import leaderboardConfig from '#config/leaderboard'
 import Player from '#models/player'
@@ -14,7 +13,6 @@ async function weekBucketKey(
   weekToDistributePrizesFor?: string,
   date = new Date()
 ) {
-  // Cron job'dan itibaren kaç interval geçtiğini hesapla
   const redis = Redis.connection('cluster')
   const cronJobStartDate = await redis.get('cron:first')
   const weekNumber = getWeekSinceCronJob(cronJobStartDate, weekToDistributePrizesFor)
@@ -22,7 +20,6 @@ async function weekBucketKey(
   return `leaderboard:week:${date.getFullYear()}-W${weekNumber}:bucket:${bucketId}`
 }
 
-// Pool Key fonksiyonu
 export async function poolKey(date = new Date(), weekToDistributePrizesFor?: string) {
   const redis = Redis.connection('cluster')
   const cronJobStartDate = await redis.get('cron:first')
@@ -31,23 +28,17 @@ export async function poolKey(date = new Date(), weekToDistributePrizesFor?: str
   return `prizepool:week:${date.getFullYear()}-W${weekNumber}`
 }
 
-// --- Add Earnings ---
 export async function addEarnings(playerId: number, amount: number) {
   const redis = Redis.connection('cluster')
 
   const bucketId = getBucketId(playerId)
   const lbKey = await weekBucketKey(bucketId)
 
-  // 1) update the player's score
   await redis.zincrby(lbKey, amount, playerId.toString())
 
-  // 2) compute integer prize-pool increment (e.g. rounded)
   const poolIncrement = Math.round(amount * 0.02)
 
-  // 3) apply as integer
   await redis.incrby(await poolKey(new Date()), poolIncrement)
-
-  //console.log('Broadcasting update →', { playerId, money: updatedScore, pool: updatedPool })
 }
 
 export function getWeekSinceCronJob(
@@ -57,26 +48,17 @@ export function getWeekSinceCronJob(
 ) {
   const currentDate = date ? new Date(date) : new Date()
   const startOfCronJob = new Date(cronJobStartDate) // Cron job'ın başladığı tarih
-  //console.log(currentDate, startOfCronJob)
-
-  //console.log(currentDate, startOfCronJob)
-  // Farkı gün cinsinden hesaplıyoruz
   const timeDifference = currentDate.getTime() - startOfCronJob.getTime()
 
-  // 1 hafta = 7 gün, 1 gün = 24 saat * 60 dakika * 60 saniye * 1000 milisaniye
   const intervalPeriodInmillisecs = leaderboardConfig.intervalPeriod * 60 * 1000
 
   let intervalsPassed = 0
-  // Kaç hafta geçtiğini hesaplıyoruz
+  // Kaç interval geçtiğini hesaplıyoruz
   if (weekToDistributePrizesFor) {
     intervalsPassed = weekToDistributePrizesFor as any
   } else {
     intervalsPassed = Math.floor(timeDifference / intervalPeriodInmillisecs) + 1
   }
-
-  //console.log(intervalsPassed)
-
-  //console.log(intervalsPassed, lastProcessedWeek)
 
   return intervalsPassed
 }
@@ -85,13 +67,9 @@ export async function getPlayerScore(
   redis: ReturnType<typeof Redis.connection>,
   playerId: number
 ): Promise<number> {
-  // 1) figure out which bucket this player lives in
   const bucketId = getBucketId(playerId)
 
-  // 2) build the exact key for that bucket
   const key = await weekBucketKey(bucketId)
-
-  // 3) pull their score (zscore returns string or null)
   const raw = await redis.zscore(key, playerId.toString())
   return raw !== null ? Number.parseFloat(raw) : 0
 }
@@ -102,10 +80,6 @@ export interface Neighbor {
   rank?: number
 }
 
-/**
- * Return the 1-based rank of the given score,
- * across all leaderboard buckets.
- */
 async function getPlayerRank(
   redis: ReturnType<typeof Redis.connection>,
   targetScore: number
@@ -119,7 +93,6 @@ async function getPlayerRank(
     higherCount += cnt
   }
 
-  // 1-based rank = number strictly above + 1
   return higherCount + 1
 }
 
@@ -136,11 +109,11 @@ export async function getScoreNeighbors(
   const higherCandidates: Neighbor[] = []
   const lowerCandidates: Neighbor[] = []
 
-  // 1) scan each bucket
+  // scan each bucket
   for (let i = 0; i < leaderboardConfig.bucketCount; i++) {
     const key = await weekBucketKey(i, '')
 
-    // a) all scores > targetScore
+    // all scores > targetScore
     const aboveRaw = await redis.zrangebyscore(
       key,
       `(${targetScore}`, // exclusive min
@@ -154,7 +127,7 @@ export async function getScoreNeighbors(
       })
     }
 
-    // b) all scores < targetScore
+    // all scores < targetScore
     const belowRaw = await redis.zrevrangebyscore(
       key,
       `(${targetScore}`, // exclusive max
@@ -183,16 +156,14 @@ export async function getScoreNeighbors(
 export async function getLeaderboard(searchTerm: string): Promise<LeaderboardEntry[]> {
   const redis = Redis.connection('cluster')
 
-  // 1) Always load the top 100
+  // Always load the top 100
   const top100 = await getTop100(redis)
 
-  // 2) If no search, just return top100 (merging name/country as you already do)
+  // If no search, just return top100 (merging name/country as you already do)
   if (!searchTerm) {
     return enrichWithPlayerData(top100)
   }
 
-  // 3) Find the searched player in your DB, ıt is faster this way
-  console.log('searched term', searchTerm)
   const result = await db.rawQuery(
     `
       SELECT
@@ -205,7 +176,7 @@ export async function getLeaderboard(searchTerm: string): Promise<LeaderboardEnt
     `,
     [searchTerm]
   )
-  // rawQuery returns an object with .rows on it
+
   const searched = result.rows[0] as {
     id: number
     name: string
@@ -217,15 +188,11 @@ export async function getLeaderboard(searchTerm: string): Promise<LeaderboardEnt
   }
 
   // 4) Get their score from Redis
-
   const targetScore = await getPlayerScore(redis, searched.id)
   const playerRank = await getPlayerRank(redis, targetScore)
 
-  console.log(targetScore)
-
   const { above: rawAbove, below: rawBelow } = await getScoreNeighbors(redis, targetScore)
 
-  // 5) Annotate with absolute ranks:
   const above: Neighbor[] = rawAbove.map((n, idx) => ({
     ...n,
     rank: playerRank - (rawAbove.length - idx),
@@ -234,17 +201,14 @@ export async function getLeaderboard(searchTerm: string): Promise<LeaderboardEnt
     ...n,
     rank: playerRank + idx + 1,
   }))
-  // 5) Fetch the 3 above / 2 below
-  //const { above, below } = await getScoreNeighbors(redis, targetScore)
-  console.log(above, below)
 
-  // 6) Merge all IDs we care about
+  // Merge all IDs we care about
   const allIds = new Set<number>(top100.map((p) => p.playerId))
   above.forEach((n) => allIds.add(n.playerId))
   below.forEach((n) => allIds.add(n.playerId))
   allIds.add(searched.id)
 
-  // 7) Build final list: pull scores from Redis, then name/country from DB
+  // Build final list: pull scores from Redis, then name/country from DB
   const playersData = await Player.query()
     .whereIn('id', [...allIds])
     .select('id', 'name', 'country')
@@ -274,13 +238,11 @@ export async function getLeaderboard(searchTerm: string): Promise<LeaderboardEnt
     })
   }
 
-  // 8) Sort however you like: highest money first
   final.sort((a, b) => b.money - a.money)
 
   return final
 }
 
-// helper to merge name/country into top100 entries
 async function enrichWithPlayerData(entries: any[]) {
   if (entries.length === 0) {
     return []
@@ -298,7 +260,7 @@ async function enrichWithPlayerData(entries: any[]) {
     `,
     ids
   )
-  // Depending on your setup, rawQuery results live in .rows or .[0]
+
   const playersData: Array<{ id: number; name: string; country: string }> =
     'rows' in result ? result.rows : (result as any)[0]
   return entries.map((e) => {
@@ -314,14 +276,11 @@ async function enrichWithPlayerData(entries: any[]) {
 
 // --- Prize Distribution ---
 export async function distributePrizesAndReset() {
-  // Diğer işlemler uzun sürebilir o yüzden işlemler başlamadan önce pool key'i alıyorum
-
   const redis = Redis.connection('cluster')
   const weekToDistributePrizesFor = await redis.get('weekToDistributePrizesFor')
-  console.log('DISTRUBUTE INSIDE', weekToDistributePrizesFor)
+
   const poolKeyName = await poolKey(new Date(), weekToDistributePrizesFor!)
   const poolAmount = await getPrizePool(redis, weekToDistributePrizesFor!)
-  console.log('POOL AMOUNT', poolAmount)
   if (poolAmount <= 0) {
     console.info('No prize pool to distribute.')
     return
@@ -331,7 +290,6 @@ export async function distributePrizesAndReset() {
   const prizes = calculatePrizes(poolAmount, top100.length)
   let sum = 0
   prizes.forEach((p) => (sum += p))
-  console.log(prizes, prizes.length, sum)
 
   await applyPrizesToPlayers(top100, prizes, poolAmount)
   await clearRedisState(redis, poolKeyName)
@@ -390,14 +348,11 @@ function calculatePrizes(poolAmount: number, count: number) {
   })
 }
 
-// services/leaderboard_service.ts
-
 export async function applyPrizesToPlayers(
   topPlayers: { playerId: number }[],
   prizes: number[],
   pool: number
 ) {
-  console.log('Starting pool:', pool)
 
   for (const [i, { playerId }] of topPlayers.entries()) {
     const awardAmount = prizes[i]
@@ -405,19 +360,15 @@ export async function applyPrizesToPlayers(
     const isLast = i === topPlayers.length - 1
     const isFirst = i === 0
 
-    // 1) Increment DB balance
     await Player.query().where('id', playerId).increment('money', awardInt)
 
-    // 2) Subtract from your local tracker, unless it's the last one
     if (!isLast) {
       pool = Math.max(0, pool - awardInt)
     }
 
-    // 3) Decide what pool value to broadcast
     const poolToReport = isLast ? 0 : pool
     console.log(`After awarding ${awardInt} to ${playerId}, pool is now ${poolToReport}`)
 
-    // 4) Broadcast
     await Broadcast.channel('leaderboard', 'prize', {
       playerId,
       award: awardInt,
@@ -440,7 +391,6 @@ async function clearRedisState(redis: ReturnType<typeof Redis.connection>, poolK
   await redis.del(poolKeyName)
 
   const weekToDistributePrizesFor = await redis.get('weekToDistributePrizesFor')
-  console.log('DELETING', await weekBucketKey(0, weekToDistributePrizesFor!))
   for (let i = 0; i < leaderboardConfig.bucketCount; i++) {
     await redis.del(await weekBucketKey(i, weekToDistributePrizesFor!))
   }
