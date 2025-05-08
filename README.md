@@ -17,6 +17,8 @@ Tamamen stateless bir mimari kurarak Redis üzerinden okuma darboğazlarını or
 
 Gerçek zamanlı frontend güncellemeleri için socket servisi, puan güncellemeleri veya ödül dağıtımları gerçekleştiğinde private WebSocket kanallar üzerinden event yayınlıyor. Frontend bu kanalları dinleyerek leaderboard ve havuz bilgilerini anında güncelliyor, kullanıcılar sayfayı yenilemeden en güncel verileri görüyor.
 
+**Önemli**: Kullandığım sunucu kapasitesinden dolayı şu anda **DB**'de 100.000 kullanıcı var. Her **1** dakikada bir **100** kişiye redis üzerinden başarım simule edilip para veriliyor. Her **3** dakikada bir ise en çok paraya sahip 100 kişiye ödüller dağıtılıyor. (Arayüzde görüntülemesi rahat olsun diye 1 hafta olan senaryoyu bu şekilde scale-down ettim. Bu intervaller env dosyasından ayarlanabiliyor.) Ödüller dağıtılırken arayüzde ödülün dağıtıldığı kişi altın rengini alıyor ve dağıtıldıkça havuzdan veri eksiliyor.
+
 ## Project Overview
 
 This is a highly scalable ****leaderboard system**** built with ****AdonisJS**** and ****Node.js****, designed to serve ****10 million**** users with millisecond-level performance for queries like “Top 100.” Key highlights:
