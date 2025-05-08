@@ -418,7 +418,7 @@ export async function applyPrizesToPlayers(
     console.log(`After awarding ${awardInt} to ${playerId}, pool is now ${poolToReport}`)
 
     // 4) Broadcast
-    await Broadcast.channel('private-leaderboard', 'prize', {
+    await Broadcast.channel('leaderboard', 'prize', {
       playerId,
       award: awardInt,
       pool: poolToReport,

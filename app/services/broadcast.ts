@@ -8,8 +8,8 @@ class Broadcast {
     appId: broadcastingConfig.appId,
     key: broadcastingConfig.appKey,
     secret: broadcastingConfig.appSecret,
-    host: broadcastingConfig.host,
-    port: broadcastingConfig.port,
+    cluster: 'eu',
+    useTLS: true,
   })
 
   public async channel(channel: string, event: string, data: any) {
