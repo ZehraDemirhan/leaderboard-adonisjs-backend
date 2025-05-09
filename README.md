@@ -13,7 +13,7 @@ Bu projede **AdonisJS** ve **Node.js** kullanarak on milyon kullanıcıya hizmet
 
 - **PostgreSQL:**
     - Veritabanı olarak **PostgreSQL** kullanıldı.
-    - Üçüncü parti bir API’den çekilen ve özel bir **AdonisJS komutu** ile oluşturulan **10 milyon kullanıcı** verisi seed edildi.
+    - Üçüncü parti bir API’den çekilen ve özel bir **AdonisJS komutu** ile oluşturulan **100 bin kullanıcı** verisi seed edildi.
     - Her kullanıcının `money` alanı başlangıçta sıfır olarak ayarlandı.
     - Haftalık ödül dağıtımları bu alanları yapılandırılmış mantıkla güncelliyor.
 
