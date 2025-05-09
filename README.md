@@ -58,7 +58,7 @@ Bu projede **AdonisJS** ve **Node.js** kullanarak on milyon kullanıcıya hizmet
     - Arama ve filtreleme gereken durumlar için PostgreSQL’de **B-tree index** kullanıldı.
 
 - **Gerçek Zamanlı Güncellemeler:**
-    - Socket servisi, puan güncellemeleri ve ödül dağıtımları gerçekleştiğinde **private WebSocket kanalları** üzerinden event yayınlıyor.
+    - Socket servisi, puan güncellemeleri ve ödül dağıtımları gerçekleştiğinde **WebSocket kanalları** üzerinden event yayınlıyor.
     - Frontend tarafı bu kanalları dinleyerek:
         - Anlık leaderboard güncellemelerini
         - Ödül havuzundaki değişiklikleri
