@@ -77,7 +77,9 @@ Bu projede **AdonisJS** ve **Node.js** kullanarak on milyon kullanıcıya hizmet
 ---
 
 ## Ekran Görüntüleri
-
-<img width="1301" alt="Screenshot 2025-05-05 at 16 54 14" src="https://github.com/user-attachments/assets/9929d7d0-a6cf-47dc-b51b-02ba1616482a" />
+<img width="1470" alt="Screenshot 2025-05-14 at 10 00 01" src="https://github.com/user-attachments/assets/3f623ebb-431a-4bef-9e04-0c343a42807f" />
 <br/>
-<img width="1313" alt="Screenshot 2025-05-05 at 17 07 33" src="https://github.com/user-attachments/assets/b7a28562-67be-4b7d-b92a-7b0bd5a32f90" />
+<img width="1467" alt="Screenshot 2025-05-14 at 10 00 13" src="https://github.com/user-attachments/assets/e8344565-17fd-46db-ac17-c8f56fba5f4a" />
+
+
+
